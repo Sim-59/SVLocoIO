@@ -44,6 +44,9 @@
  LAST CHANGES:
  1/9/2019 - Inform state of all inputs at power on, depends on the define #INFORMATPOWERON
           - Bug fixed on input numbers, they are stored in value1 and value2 different than outputs
+ 
+ ADDITINAL OPTION ACTIVE HIGH:
+ 20.07.2024 by Michael Hochmuth, http://www.simandit.de, Version number set to 107         
 *************************************************************************/
 
 #include <LocoNet.h>
@@ -54,7 +57,7 @@
 //Uncomment this line to do not inform of the inputs state at power on
 #define INFORMATPOWERON
 
-#define VERSION 106
+#define VERSION 107
 
 namespace {
 //#define VIDA_LOCOSHIELD_NANO 1
@@ -136,9 +139,6 @@ void setup()
     for (n=0;n<16;n++)
     {
       inpTimer[n]=0; //timer initialization
-      
-
-      
       if (bitRead(svtable.svt.pincfg[n].cnfg,7))
       {
         myAddr[n]=(svtable.svt.pincfg[n].value2 & B00001111)<<7;
@@ -230,16 +230,38 @@ void loop()
         #ifdef DEBUG
         Serial.print("INPUT ");Serial.print(n);
         Serial.print(" IN PIN "); Serial.print(pinMap[n]);
-        Serial.print(" CHANGED, INFORM "); Serial.println(myAddr[n]);
         #endif
-        LocoNet.send(OPC_INPUT_REP, svtable.svt.pincfg[n].value1, svtable.svt.pincfg[n].value2);
+        if (bitRead(svtable.svt.pincfg[n].cnfg,6)) // active configuration "Active High"
+        {
+          if (currentState==0) {  // sensor / key activated
+            #ifdef DEBUG 
+            Serial.print(" CHANGED, INFORM "); Serial.println((svtable.svt.pincfg[n].value1<<1 | bitRead(svtable.svt.pincfg[n].value2,5))+1); 
+            #endif
+            LocoNet.send(OPC_INPUT_REP, svtable.svt.pincfg[n].value1, svtable.svt.pincfg[n].value2);
+          } else {                // sensor / key released
+            if (bitRead(svtable.svt.pincfg[n].value2,5)) {
+              #ifdef DEBUG 
+              Serial.print(" CHANGED, INFORM "); Serial.println(svtable.svt.pincfg[n].value1<<1 | bitRead(svtable.svt.pincfg[n].value2,5));
+              #endif
+              LocoNet.send(OPC_INPUT_REP, svtable.svt.pincfg[n].value1, svtable.svt.pincfg[n].value2 & 0xDF);
+            } else {
+              #ifdef DEBUG 
+              Serial.print(" CHANGED, INFORM "); Serial.println((svtable.svt.pincfg[n].value1<<1 | bitRead(svtable.svt.pincfg[n].value2,5))+2);
+              #endif
+              LocoNet.send(OPC_INPUT_REP, svtable.svt.pincfg[n].value1, svtable.svt.pincfg[n].value2 | 0x20);
+            }
+          }
+        } else {
+          #ifdef DEBUG 
+          Serial.print(" CHANGED, INFORM "); Serial.println((svtable.svt.pincfg[n].value1<<1 | bitRead(svtable.svt.pincfg[n].value2,5))+1);
+          #endif
+          LocoNet.send(OPC_INPUT_REP, svtable.svt.pincfg[n].value1, svtable.svt.pincfg[n].value2);  
+        }
         //Update state to detect flank (use bit in value2 of SV)
         bitWrite(svtable.svt.pincfg[n].value2,4,currentState);
-      }
-      
+      } 
     }
-  }
-    
+  }    
 }
 
 /*************************************************************************/
