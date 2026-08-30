@@ -46,7 +46,8 @@
           - Bug fixed on input numbers, they are stored in value1 and value2 different than outputs
  
  ADDITINAL OPTION ACTIVE HIGH:
- 20.07.2024 by Michael Hochmuth, http://www.simandit.de, Version number set to 107         
+ 20.07.2024 by Michael Hochmuth, http://www.simandit.de, version number set to 107      
+ 20.08.2026 added continous output at contact2, version number set to 109  
 *************************************************************************/
 
 #include <LocoNet.h>
@@ -57,7 +58,7 @@
 //Uncomment this line to do not inform of the inputs state at power on
 #define INFORMATPOWERON
 
-#define VERSION 107
+#define VERSION 109
 
 namespace {
 //#define VIDA_LOCOSHIELD_NANO 1
@@ -363,7 +364,7 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t Direction )
       //OFF messages are not listened
       else if (bitRead(svtable.svt.pincfg[n].cnfg,3)==0 && bitRead(svtable.svt.pincfg[n].cnfg,2)==0 && Output)
       {
-        if (!Direction)
+        if (bitRead(svtable.svt.pincfg[n].value2,5) == Direction)         // added support for contact2 in version 109
           digitalWrite(pinMap[n], HIGH);
         else
           digitalWrite(pinMap[n], LOW);    
