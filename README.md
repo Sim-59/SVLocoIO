@@ -1,1 +1,2 @@
-Not all functions of the LocoIO-PIC-Vers-148 as used in the GCA123/GCA50 are implemented in the ClubNCaldes/SVLocoIO sketch. Only the "Block Sensor" variant has been implemented as an input. One option, which was also missing in the sensor function, was subsequently added to the sketch. This is the "Active High" option as implemented in the PIC.
+Not all functions of the LocoIO-PIC-Vers-148 as used in the GCA123/GCA50 are implemented in the ClubNCaldes/SVLocoIO sketch. One option, which was missing in the sensor function, was subsequently added to the sketch. This is the "Active High" option as implemented in the PIC.
+Also changed the continous output function if contact2 is activated like in PIC-Version-148. It realizes the invers function at the output.
