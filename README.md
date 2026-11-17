@@ -16,7 +16,7 @@ The version number is changed to 10 to avoid conflicts with development from [Si
 * Based on SVLocoIO from [Daniel Guisado Serra / ClubNCaldes](https://github.com/ClubNCaldes/SVLocoIO)
 * Used [MRRwA LocoNet libraries for Arduino](http://mrrwa.org/)
 * Inspired on the GCA123 board from [Peter Giling](http://www.phgiling.net/)
-* initialisation inspired by SVLocoIO from [Egbert Broerse](https://github.com/silverailscolo)
+* Initialisation inspired by SVLocoIO from [Egbert Broerse](https://github.com/silverailscolo)
 
 ### Installation
 In the Arduino-IDE the above said LocoIO hardware ist programmed like Arduino Pro Mini. To the blank hardware at first the bootloader must be programmed. There is an ISP connector for this purpose. Afterwards you can use an USB-TTL-adapter like  Arduino Pro Mini.\
