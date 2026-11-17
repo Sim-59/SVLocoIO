@@ -45,10 +45,11 @@
  1/9/2019 - Inform state of all inputs at power on, depends on the define #INFORMATPOWERON
           - Bug fixed on input numbers, they are stored in value1 and value2 different than outputs
  
- ADDITINAL OPTION ACTIVE HIGH:
- 20.07.2024 by Michael Hochmuth, http://www.simandit.de, version number set to 107      
+ 20.07.2024 added option "active high" by Michael Hochmuth, http://www.simandit.de, version number set to 107      
  20.08.2026 added continous output at contact2, version number set to 109  
-*************************************************************************/
+ 17.11.2026 added flash support for outputs, version number set back to 10, because of other development at https://github.com/silverailscolo/SVLocoIO/ 
+            used som parts of initialisation from https://github.com/silverailscolo/SVLocoIO/
+******************************************************************************************************************************************************/
 
 #include <LocoNet.h>
 #include <EEPROM.h>
@@ -58,7 +59,7 @@
 //Uncomment this line to do not inform of the inputs state at power on
 #define INFORMATPOWERON
 
-#define VERSION 109
+#define VERSION 10
 
 namespace {
 //#define VIDA_LOCOSHIELD_NANO 1
@@ -74,6 +75,10 @@ uint8_t pinMap[16]={2,3,4,5,6,9,10,11,12,13,14,15,16,17,18,19};
 //Timers for each input in case of using "block" configuration instead of "input" configuration
 //input defined as "block" will keep the signal high at least 2 seconds
 unsigned long inpTimer[16];
+uint8_t blinkPeriod = 0;                 // default board setting for blinking rate of output ports
+unsigned long startBlinkMillis = 0;      // use the same time for all LED flashes to keep them synchronized
+
+uint8_t blinkState[16];
 
 //3 bytes defining a pin behavior ( http://wiki.rocrail.net/doku.php?id=loconet-io-en )
 typedef struct 
@@ -86,7 +91,7 @@ typedef struct
 //Memory map exchanged with SV read and write commands ( http://wiki.rocrail.net/doku.php?id=lnsv-en )
 typedef struct
 {
-  uint8_t vrsion;
+  uint8_t board_cnfg;
   uint8_t addr_low;
   uint8_t addr_high;
   PIN_CFG pincfg[16];
@@ -95,7 +100,7 @@ typedef struct
 //Union to access the data with the struct or by index
 typedef union {
   SV_TABLE svt;
-  uint8_t data[51];
+  uint8_t data[101];
 } SV_DATA;
 
 SV_DATA svtable;
@@ -103,7 +108,7 @@ lnMsg *LnPacket;
 
 //Table with addresses of pins already converted, input numbers are stored in a different way than output numbers. ¿BUG?
 uint16_t myAddr[16];
-  
+
 void setup()
 {
   int n;  
@@ -113,23 +118,53 @@ void setup()
 
   // Configure the serial port for 57600 baud
   #ifdef DEBUG
-  Serial.begin(9600);
+  Serial.begin(57600);
   Serial.print("SVLocoIO v.");Serial.println(VERSION);
   #endif 
 
   //Load config from EEPROM
-  for (n=0;n<51;n++)
-    svtable.data[n]=EEPROM.read(n);
+  svtable.svt.board_cnfg = EEPROM.read(0); // contains board blink rate (bit4...7), etc.
+  blinkPeriod = (svtable.svt.board_cnfg & 0xF0) >> 4;
 
+  svtable.svt.addr_low = EEPROM.read(1);
+  svtable.svt.addr_high = EEPROM.read(2);
+
+  for (n=0;n<101;n++) {
+    svtable.data[n]=EEPROM.read(n);
+  }
+  
   //Check for a valid config
-  if (svtable.svt.vrsion!=VERSION || svtable.svt.addr_low<1 || svtable.svt.addr_low>240 || svtable.svt.addr_high<1 || svtable.svt.addr_high>100 )
+  if (svtable.data[100] != VERSION || svtable.svt.addr_low<1 || svtable.svt.addr_low>240 || svtable.svt.addr_high<1 || svtable.svt.addr_high>100 )
   {
-    svtable.svt.vrsion=VERSION;
+    svtable.data[100] = VERSION;
     svtable.svt.addr_low=81;
     svtable.svt.addr_high=1;
-    EEPROM.write(0,VERSION);
+    EEPROM.write(0, 0); // HDL LocoIO compatible board config (stores: refresh at power on, blink rate, etc.)
     EEPROM.write(1, svtable.svt.addr_low);
     EEPROM.write(2, svtable.svt.addr_high);
+    EEPROM.write(99, 0); // init JMRI LocoIO decoder storage of o-bits
+    EEPROM.write(100, VERSION); // HDL LocoIO compatible SV100, readOnly from LocoNet
+
+    // reset ports
+    uint16_t s_port_func = 0x1F;  // default: input
+    for (n = 0; n < 16; n++) {
+      // set function in global vars
+      svtable.svt.pincfg[n].cnfg = s_port_func;
+      svtable.data[3 * (n + 1)] = s_port_func;
+      svtable.data[3 * (n + 1)+1] = (n+1) >> 1;
+      svtable.data[3 * (n + 1)+2] = ((n+1) & 0x01)<<5;
+      // set in EEPROM for persistence
+      EEPROM.write(3 * (n + 1), s_port_func);
+      EEPROM.write(3 * (n + 1)+1, (n+1) >> 1);
+      EEPROM.write(3 * (n + 1)+2, ((n+1) & 0x01)<<5);
+    }
+
+    // write 0 to remaining svtable.data & EEPROM 51 - 98
+    for (n = 51; n < 99; n++) {
+      svtable.data[n] = 0;
+      EEPROM.write(n, 0);
+    }
+    Serial.println(F("Version mismatch; EEPROM was reset to defaults."));
   }
   else
   {
@@ -170,6 +205,9 @@ void setup()
   }
   
   Serial.print("Module ");Serial.print(svtable.svt.addr_low);Serial.print("/");Serial.println(svtable.svt.addr_high);
+  
+  startBlinkMillis = millis();
+
 }
 
 void loop()
@@ -177,7 +215,7 @@ void loop()
   int n;
   bool hasChanged;
   int currentState;
-  
+
   // Check for any received LocoNet packets
   LnPacket = LocoNet.receive() ;
   if( LnPacket )
@@ -208,6 +246,8 @@ void loop()
   // Check inputs to inform 
   for (n=0; n<16; n++)
   {
+    updateBlink(n);
+
     if (!bitRead(svtable.svt.pincfg[n].cnfg,7) && myAddr[n]>=1)   
     {
       //Check if state changed 
@@ -354,20 +394,24 @@ void notifySwitchRequest( uint16_t Address, uint8_t Output, uint8_t Direction )
       //If continue and hardware reset and Direction
       else if (bitRead(svtable.svt.pincfg[n].cnfg,3)==0 && bitRead(svtable.svt.pincfg[n].cnfg,2)==1 && bitRead(svtable.svt.pincfg[n].value2,5) == Direction)
       {
-        if (Output)
+        if (Output) {
           digitalWrite(pinMap[n], HIGH);
-        else
+        } else {
           digitalWrite(pinMap[n], LOW);
+        }
         break;
       }
       //If continue and software reset, one Direction ON turns on and other Direction ON turns off
       //OFF messages are not listened
       else if (bitRead(svtable.svt.pincfg[n].cnfg,3)==0 && bitRead(svtable.svt.pincfg[n].cnfg,2)==0 && Output)
       {
-        if (bitRead(svtable.svt.pincfg[n].value2,5) == Direction)         // added support for contact2 in version 109
+        if (bitRead(svtable.svt.pincfg[n].value2,5) == Direction) {        // added support for contact2 in version 109
           digitalWrite(pinMap[n], HIGH);
-        else
-          digitalWrite(pinMap[n], LOW);    
+          if (bitRead(svtable.svt.pincfg[n].cnfg,4)==1) blinkState[n] = 1;
+        } else {
+          digitalWrite(pinMap[n], LOW);
+          blinkState[n] = 0;
+        }
         break;
       }
     }
@@ -442,26 +486,42 @@ boolean processPeerPacket()
     #ifdef DEBUG
     Serial.print("READ ");Serial.print(LnPacket->px.d2);Serial.print(" ");Serial.print(LnPacket->px.d2+1);Serial.print(" ");Serial.println(LnPacket->px.d2+2);
     #endif
-    sendPeerPacket(svtable.data[LnPacket->px.d2], svtable.data[LnPacket->px.d2+1], svtable.data[LnPacket->px.d2+2]);
-    return (true);
+    if (LnPacket->px.d2 >= 0) // SV0 contains board config, SV100 is highest SV on LocoIO/GCA51
+    {
+      if (LnPacket->px.d2 < 99)
+      {
+        sendPeerPacket(svtable.data[LnPacket->px.d2], svtable.data[LnPacket->px.d2 + 1], svtable.data[LnPacket->px.d2 + 2]);
+        return (true);
+      } else if (LnPacket->px.d2 == 99) { // A readReply always includes the d2+1 and d2+2 values...
+        sendPeerPacket(svtable.data[LnPacket->px.d2], svtable.data[LnPacket->px.d2 + 1], 0);
+        return (true);
+      } else if (LnPacket->px.d2 == 100) {  // ...so to read SV100 we must add 2 fake values in the reply
+        sendPeerPacket(svtable.data[LnPacket->px.d2], 0, 0);
+        return (true);
+      } else {
+        Serial.print(F("Read offset is outside valid range (0-100): ")); Serial.println(LnPacket->px.d2);
+      }
+    }
   }
   
   //Write command
   if (LnPacket->px.d1==1)
   {
     //SV 0 contains the program version (write SV0 == RESET? )
-    if (LnPacket->px.d2>0)
+    if (LnPacket->px.d2 >= 0 && LnPacket->px.d2 < 100) // SV 0 contains board config, SV100 (Version) is read only
     {
       //Store data
       svtable.data[LnPacket->px.d2]=LnPacket->px.d4;
       EEPROM.write(LnPacket->px.d2,LnPacket->px.d4);
       
       #ifdef DEBUG
-      Serial.print("ESCRITURA "); Serial.print(LnPacket->px.d2); Serial.print(" <== ");
+      Serial.print("WROTEA "); Serial.print(LnPacket->px.d2); Serial.print(" <== ");
       Serial.print(LnPacket->px.d4); Serial.print(" | ");
       Serial.print(LnPacket->px.d4, HEX); Serial.print(" | ");
       Serial.println(LnPacket->px.d4, BIN);
       #endif
+    } else {
+      Serial.print(F("Write offset is outside valid range (0-99): ")); Serial.println(LnPacket->px.d2);
     }
 
     //Answer packet        
@@ -473,7 +533,6 @@ boolean processPeerPacket()
   }
   
   return (false);
-  
 }
 
 void sendPeerPacket(uint8_t p0, uint8_t p1, uint8_t p2)
@@ -488,7 +547,7 @@ void sendPeerPacket(uint8_t p0, uint8_t p1, uint8_t p2)
   txPacket.px.pxct1=0x00;
   txPacket.px.d1=LnPacket->px.d1;  //Original command
   txPacket.px.d2=LnPacket->px.d2;  //SV requested
-  txPacket.px.d3=svtable.svt.vrsion;
+  txPacket.px.d3 = svtable.data[100];
   txPacket.px.d4=0x00;
   txPacket.px.pxct2=0x00;
   txPacket.px.d5=svtable.svt.addr_high; //SOURCE high address
@@ -519,4 +578,24 @@ void sendPeerPacket(uint8_t p0, uint8_t p1, uint8_t p2)
   #ifdef DEBUG
   Serial.println("OPC_PEER_XFER Packet sent!");
   #endif
+}
+
+void updateBlink(uint8_t portIdx) {
+  if (blinkPeriod > 0) {
+	  if ((bitRead(svtable.svt.pincfg[portIdx].cnfg,7) == 1) && (blinkState[portIdx] == 1 )) {   //Setup as an Output and blinkmode
+      if (bitRead(svtable.svt.pincfg[portIdx].value2,5)) {                                    // contact2 alternates flashing
+        if (((millis() - startBlinkMillis) % (blinkPeriod*250)) < blinkPeriod*125) {
+          digitalWrite(pinMap[portIdx], HIGH);
+        } else {
+          digitalWrite(pinMap[portIdx], LOW);
+        }
+      } else {
+        if ((((millis() - startBlinkMillis) % (blinkPeriod*250)) < blinkPeriod*125) && blinkPeriod > 0) {
+          digitalWrite(pinMap[portIdx], LOW);
+        } else {
+          digitalWrite(pinMap[portIdx], HIGH);
+        }
+      }
+    }
+	}
 }
