@@ -1,3 +1,5 @@
 Not all functions of the LocoIO-PIC-Vers-148 as used in the GCA123/GCA50 are implemented in the ClubNCaldes/SVLocoIO sketch. One option, which was missing in the sensor function, was subsequently added to the sketch. This is the "Active High" option as implemented in the PIC. Version is set to 107.
 
 Also changed the continous output function if contact2 is activated like in PIC-Version-148. It realizes the invers function at the output. Version is set to 109.
+
+Added support for flashing outputs. Changed version number to 10 to avoid conflicts with development from [Silverrailscolo](https://github.com/silverailscolo/SVLocoIO/)
