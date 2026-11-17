@@ -2,4 +2,4 @@ Not all functions of the LocoIO-PIC-Vers-148 as used in the GCA123/GCA50 are imp
 
 Also changed the continous output function if contact2 is activated like in PIC-Version-148. It realizes the invers function at the output. Version is set to 109.
 
-Added support for flashing outputs. Changed version number to 10 to avoid conflicts with development from [Silverrailscolo](https://github.com/silverailscolo/SVLocoIO/)
+Added support for flashing outputs. Changed version number to 10 to avoid conflicts with development from [Silverailscolo](https://github.com/silverailscolo/SVLocoIO/)
