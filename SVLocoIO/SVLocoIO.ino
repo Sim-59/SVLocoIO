@@ -75,7 +75,8 @@ uint8_t pinMap[16]={2,3,4,5,6,9,10,11,12,13,14,15,16,17,18,19};
 //Timers for each input in case of using "block" configuration instead of "input" configuration
 //input defined as "block" will keep the signal high at least 2 seconds
 unsigned long inpTimer[16];
-uint8_t blinkPeriod = 0;                 // default board setting for blinking rate of output ports
+uint8_t blinkRate = 0;                   // default board setting for blinking rate of output ports
+uint16_t blinkDuration = 250;
 unsigned long startBlinkMillis = 0;      // use the same time for all LED flashes to keep them synchronized
 
 uint8_t blinkState[16];
@@ -124,7 +125,7 @@ void setup()
 
   //Load config from EEPROM
   svtable.svt.board_cnfg = EEPROM.read(0); // contains board blink rate (bit4...7), etc.
-  blinkPeriod = (svtable.svt.board_cnfg & 0xF0) >> 4;
+  blinkRate = (svtable.svt.board_cnfg & 0xF0) >> 4;
 
   svtable.svt.addr_low = EEPROM.read(1);
   svtable.svt.addr_high = EEPROM.read(2);
@@ -581,16 +582,16 @@ void sendPeerPacket(uint8_t p0, uint8_t p1, uint8_t p2)
 }
 
 void updateBlink(uint8_t portIdx) {
-  if (blinkPeriod > 0) {
+  if (blinkRate > 0) {
 	  if ((bitRead(svtable.svt.pincfg[portIdx].cnfg,7) == 1) && (blinkState[portIdx] == 1 )) {   //Setup as an Output and blinkmode
       if (bitRead(svtable.svt.pincfg[portIdx].value2,5)) {                                    // contact2 alternates flashing
-        if (((millis() - startBlinkMillis) % (blinkPeriod*250)) < blinkPeriod*125) {
+        if (((millis() - startBlinkMillis) % (blinkRate*blinkDuration)) < blinkRate*(blinkDuration/2)) {
           digitalWrite(pinMap[portIdx], HIGH);
         } else {
           digitalWrite(pinMap[portIdx], LOW);
         }
       } else {
-        if ((((millis() - startBlinkMillis) % (blinkPeriod*250)) < blinkPeriod*125) && blinkPeriod > 0) {
+        if (((millis() - startBlinkMillis) % (blinkRate*blinkDuration)) < blinkRate*(blinkDuration/2)) {
           digitalWrite(pinMap[portIdx], LOW);
         } else {
           digitalWrite(pinMap[portIdx], HIGH);
