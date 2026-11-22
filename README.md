@@ -1,6 +1,6 @@
 ## Overview
 **SVLocoIO** is a sketch for an Arduino based LocoIO module.
-The code is e.g. used with a [LocoIO-A-InOut](https://simandit.de/simwiki/doku.php?id=modellbahn:digital#locoio-a-inout) hardware from [Sim&IT](https://simandit.de/Alle/about_simandit.php) that works like Arduino Pro Mini. There are found the schematic, assembly, bom and possibility to order the pcb for personal use.  
+The code is e.g. used with a [LocoIO-A-InOut](https://simandit.de/simwiki/doku.php?id=modellbahn:digital#locoio-a-inout) hardware from [Sim&IT](https://simandit.de/Alle/about_simandit.php) that works like Arduino Pro Mini with connection to the Loconet. There are found the schematic, assembly, bom and possibility to order the pcb for personal use.  
 ### Author
 [Michael Hochmuth](https://github.com/Sim-59)
 
