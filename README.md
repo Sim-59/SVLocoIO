@@ -7,7 +7,7 @@ The code is e.g. used with a [LocoIO-A-InOut](https://simandit.de/simwiki/doku.p
 ### Credits
 * Based on SVLocoIO from [Daniel Guisado Serra / ClubNCaldes](https://github.com/ClubNCaldes/SVLocoIO)
 * Used [MRRwA LocoNet libraries for Arduino](http://mrrwa.org/)
-* Inspired on the GCA123 board from [Peter Giling](http://www.phgiling.net/)
+* Inspired on the GCA123 board from [Peter Giling/rocrail](https://www.rocrail-wiki.net/doku.php?id=mgv123-en)
 * Initialisation inspired by SVLocoIO from [Egbert Broerse](https://github.com/silverailscolo)
 
 
